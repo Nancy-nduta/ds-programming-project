@@ -1,0 +1,25 @@
+services:
+  loadbalancer:
+    build: ./loadbalancer
+    container_name: loadbalancer
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    networks:
+      net1:
+        aliases:
+          - loadbalancer
+
+  server_image:
+    build: ./server
+    image: server_image
+    networks:
+      net1:
+        aliases:
+          - server_image
+
+networks:
+  net1:
+    external: true

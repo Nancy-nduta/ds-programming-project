@@ -1,0 +1,37 @@
+import asyncio
+import aiohttp
+import time
+from collections import Counter
+
+LB_URL = "http://localhost:5000/home"
+NUM_REQUESTS = 10000
+CONCURRENCY = 200  # limit simultaneous connections
+
+async def fetch(session, sem):
+    async with sem:
+        try:
+            async with session.get(LB_URL, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                data = await resp.json()
+                msg = data.get("message", "")
+                # message looks like "Hello from Server: 2"
+                server_id = msg.split(":")[-1].strip()
+                return server_id
+        except Exception as e:
+            return "ERROR"
+
+async def run_load_test(n=NUM_REQUESTS):
+    sem = asyncio.Semaphore(CONCURRENCY)
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch(session, sem) for _ in range(n)]
+        results = await asyncio.gather(*tasks)
+    return Counter(results)
+
+if __name__ == "__main__":
+    start = time.time()
+    counts = asyncio.run(run_load_test())
+    elapsed = time.time() - start
+
+    print(f"\nCompleted {NUM_REQUESTS} requests in {elapsed:.2f}s")
+    print("Distribution:")
+    for server, count in sorted(counts.items()):
+        print(f"  Server {server}: {count} requests")
