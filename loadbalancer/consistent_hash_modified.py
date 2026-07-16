@@ -1,34 +1,34 @@
 class ConsistentHashMap:
     def __init__(self, num_slots=512, num_virtual=9):
-        # num_slots: total positions on the hash ring
-        # num_virtual: how many virtual copies of each physical server
-        # are placed on the ring, to smooth out load distribution
+        # num_slots: total positions on the ring
+        # num_virtual: virtual copies per physical server, spreads
+        # load out more evenly than one point per server would
         self.num_slots = num_slots
         self.num_virtual = num_virtual
-        self.slot_to_server = {}   # maps ring slot -> server hostname
-        self.server_to_slots = {}  # maps server hostname -> list of its slots
+        self.slot_to_server = {}   # slot -> server_id (hostname)
+        self.server_to_slots = {}  # server_id -> [slots]
 
     def _request_hash(self, i):
-        # Maps an incoming request ID to a ring slot
-        return (i * i + 2 * i + 17) % self.num_slots
+        # Modified hash function for A-4: better bit-mixing than the quadratic default
+        return (hash(f"req-{i}") ) % self.num_slots
 
     def _virtual_hash(self, i, j):
-        # Maps a (server number, virtual replica index) pair to a ring slot
-        return (i * i + j * j + 2 * j + 25) % self.num_slots
+        # Modified hash function for A-4, j keeps each virtual copy of
+        # the same server landing on a different slot
+        return (hash(f"srv-{i}-{j}")) % self.num_slots
 
     def _find_free_slot(self, start):
-        # If the computed slot is already taken, use quadratic probing
-        # to find the next open slot instead of overwriting it
+        # If start is taken, hop forward using quadratic probing rather
+        # than overwriting whatever server is already sitting there
         slot = start % self.num_slots
         step = 1
         while slot in self.slot_to_server:
-            slot = (start + step * step) % self.num_slots
+            slot = (start + step*step) % self.num_slots
             step += 1
         return slot
 
     def add_server(self, server_id, server_num):
-        # Registers a new server by placing K virtual copies of it
-        # around the ring
+        # Drops num_virtual copies of this server around the ring
         slots = []
         for j in range(self.num_virtual):
             h = self._virtual_hash(server_num, j)
@@ -38,16 +38,15 @@ class ConsistentHashMap:
         self.server_to_slots[server_id] = slots
 
     def remove_server(self, server_id):
-        # Frees up all slots belonging to this server so they can be
-        # reused by future servers
+        # Clears out every slot this server was occupying
         for slot in self.server_to_slots.pop(server_id, []):
             del self.slot_to_server[slot]
 
     def get_server(self, request_id):
-        # Finds which server should handle a given request by hashing
-        # its ID and walking clockwise until an occupied slot is found
         if not self.slot_to_server:
             return None
+        # Hash the request onto the ring, then walk forward until we
+        # hit an occupied slot, that's the server responsible for it
         start = self._request_hash(request_id)
         slot = start
         for _ in range(self.num_slots):

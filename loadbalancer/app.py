@@ -15,21 +15,25 @@ NETWORK_NAME = "net1"
 SERVER_IMAGE = "server_image"
 N_DEFAULT = 3
 
+# Lock protects shared state (hash map, hostname lists) from being
+# modified by the heartbeat thread and a request handler at the same time
 lock = threading.Lock()
 hash_map = ConsistentHashMap(num_slots=512, num_virtual=9)
 
-# bookkeeping
-server_counter = 0          # numeric id used in Φ(i,j) hashing
-hostname_to_num = {}        # hostname -> numeric id
-active_hostnames = []       # list of hostnames currently managed
+# Bookkeeping for currently running servers
+server_counter = 0          # increments with every server ever created, used as its numeric hash ID
+hostname_to_num = {}        # hostname -> numeric ID
+active_hostnames = []       # hostnames currently registered and running
 
 
 def random_hostname():
+    # Generates a random container name when the caller doesn't specify one
     return "S" + "".join(random.choices(string.digits, k=4))
 
 
 def spawn_server(hostname=None):
-    """Spawn a new server container, register it in the hash map."""
+    # Starts a new server container on the shared Docker network and
+    # registers it in the consistent hash map
     global server_counter
     if hostname is None:
         hostname = random_hostname()
@@ -52,7 +56,7 @@ def spawn_server(hostname=None):
 
 
 def remove_server(hostname):
-    """Stop+remove a container, deregister it from the hash map."""
+    # Stops and removes a container, and deregisters it from the hash map
     try:
         c = docker_client.containers.get(hostname)
         c.stop()
@@ -67,20 +71,24 @@ def remove_server(hostname):
 
 
 def init_servers(n=N_DEFAULT):
+    # Spawns the initial N servers when the load balancer starts up
     with lock:
         for _ in range(n):
             spawn_server()
 
 
-# ---------- Heartbeat monitor ----------
 def heartbeat_loop():
+    # Runs continuously in a background thread. Every 5 seconds, checks
+    # each active server's /heartbeat endpoint. If a server doesn't
+    # respond, it's assumed dead, removed, and replaced automatically
+    # so the system always maintains N running replicas.
     while True:
         time.sleep(5)
         with lock:
             dead = []
             for hostname in list(active_hostnames):
                 try:
-                    r = requests.get(f"http://{hostname}:5000/heartbeat", timeout=2)
+                    r = requests.get(f"http://{hostname}:5000/heartbeat", timeout=5)
                     if r.status_code != 200:
                         dead.append(hostname)
                 except requests.exceptions.RequestException:
@@ -92,10 +100,9 @@ def heartbeat_loop():
                 spawn_server()
 
 
-# ---------- Endpoints ----------
-
 @app.route("/rep", methods=["GET"])
 def rep():
+    # Returns the current number of replicas and their hostnames
     with lock:
         return jsonify({
             "message": {
@@ -108,6 +115,9 @@ def rep():
 
 @app.route("/add", methods=["POST"])
 def add():
+    # Scales up by spawning n new servers. If fewer hostnames are given
+    # than n, the rest get random names. Rejects payloads where the
+    # hostname list is longer than n.
     payload = request.get_json(force=True)
     n = payload.get("n", 0)
     hostnames = payload.get("hostnames", [])
@@ -134,6 +144,9 @@ def add():
 
 @app.route("/rm", methods=["DELETE"])
 def rm():
+    # Scales down by removing n servers. Named hostnames are removed
+    # first; any remaining count is filled by removing random servers.
+    # Rejects payloads where the hostname list is longer than n.
     payload = request.get_json(force=True)
     n = payload.get("n", 0)
     hostnames = payload.get("hostnames", [])
@@ -164,6 +177,9 @@ def rm():
 
 @app.route("/<path:path>", methods=["GET"])
 def route_request(path):
+    # Generates a random request ID, uses the consistent hash map to pick
+    # a server, and forwards the request to it. Converts both network
+    # errors and 404s from the server into the spec's expected error format.
     request_id = random.randint(100000, 999999)
 
     with lock:
@@ -177,6 +193,11 @@ def route_request(path):
 
     try:
         r = requests.get(f"http://{hostname}:5000/{path}", timeout=3)
+        if r.status_code == 404:
+            return jsonify({
+                "message": f"<Error> '/{path}' endpoint does not exist in server replicas",
+                "status": "failure"
+            }), 400
         return (r.content, r.status_code, r.headers.items())
     except requests.exceptions.RequestException:
         return jsonify({

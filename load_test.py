@@ -7,7 +7,10 @@ LB_URL = "http://localhost:5000/home"
 NUM_REQUESTS = 10000
 CONCURRENCY = 200  # limit simultaneous connections
 
+
 async def fetch(session, sem):
+    # Semaphore throttles how many requests are actually in flight,
+    # even though all NUM_REQUESTS tasks get spun up right away.
     async with sem:
         try:
             async with session.get(LB_URL, timeout=aiohttp.ClientTimeout(total=5)) as resp:
@@ -17,7 +20,10 @@ async def fetch(session, sem):
                 server_id = msg.split(":")[-1].strip()
                 return server_id
         except Exception as e:
+            # Any failure (timeout, connection drop, bad JSON) gets
+            # bucketed as ERROR instead of taking down the whole run.
             return "ERROR"
+
 
 async def run_load_test(n=NUM_REQUESTS):
     sem = asyncio.Semaphore(CONCURRENCY)
@@ -25,6 +31,7 @@ async def run_load_test(n=NUM_REQUESTS):
         tasks = [fetch(session, sem) for _ in range(n)]
         results = await asyncio.gather(*tasks)
     return Counter(results)
+
 
 if __name__ == "__main__":
     start = time.time()
