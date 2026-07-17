@@ -1,10 +1,9 @@
-# ICS 4104 Assignment 1 — Customizable Load Balancer
+# ICS 4104 Distributed Systems Programming Project — Customizable Load Balancer
 
 ## Overview
 
 This project implements a customizable load balancer for distributed web
-servers, built as part of the ICS 4104 Distributed Systems course
-(Assignment 1). The system distributes incoming client requests across
+servers.The system distributes incoming client requests across
 `N` dynamically managed server replicas using a **consistent hashing**
 data structure, and automatically detects and recovers from server
 failures — without any manual intervention.
@@ -167,13 +166,20 @@ curl -X DELETE http://localhost:5000/rm \
 The `tests/` folder contains both unit tests and integration/analysis
 scripts.
 
-**Unit tests** (consistent hashing logic, run without Docker):
+**0. Install test dependencies** (if you haven't already):
+```bash
+pip3 install -r requirements.txt
+```
+
+**1. Unit tests** (consistent hashing logic, run without Docker):
 ```bash
 pytest tests/test_consistent_hash.py -v
 ```
 
-**Integration tests** (requires the system to be running via `make up`):
+**2. Integration tests** (requires the system to be running):
 ```bash
+make build
+make up
 pytest tests/test_endpoints.py -v
 ```
 These cover: `/rep` correctness, `/add` and `/rm` validation (including
@@ -182,7 +188,26 @@ the 400 error for an unregistered endpoint, and failure-recovery
 (stopping a container and confirming a replacement is spawned within one
 heartbeat interval, ~5-6 seconds).
 
-**Load / analysis tests** (requires the system running; produces the
+The failure-recovery test is marked `slow` since it involves a real
+5-7 second wait. To skip it for a quicker run:
+```bash
+pytest tests/test_endpoints.py -v -m "not slow"
+```
+
+Tear down when finished:
+```bash
+make down
+```
+
+**3. Run the full test suite in one go:**
+```bash
+make build
+make up
+pytest -v
+make down
+```
+
+**4. Load / analysis tests** (requires the system running; produces the
 charts referenced in the Analysis section below):
 ```bash
 python3 tests/plot_a1.py             # A-1: bar chart, N=3, original hash functions
@@ -198,7 +223,7 @@ Charts are saved to `results/`.
 Using the assignment's default `H(i) = i² + 2i + 17` and
 `Φ(i,j) = i² + j² + 2j + 25`:
 
-![A1 original](results/a1_original.png)
+![A1 original](results/a1_load_distribution.png)
 
 **Observation**: one server consistently absorbed ~79-88% of all traffic
 across repeated runs, while the others received a small fraction. This
@@ -207,7 +232,7 @@ unevenly across the 512-slot ring for small server counts, rather than
 spreading them uniformly.
 
 ### A-2: Scalability, N=2 to N=6 (original hash functions)
-![A2 original](results/a2_original.png)
+![A2 original](results/a2_scalability.png)
 
 Average load per server dropped predictably as N increased (5000 → ~1667),
 but the underlying distribution stayed skewed toward the same dominant
@@ -243,18 +268,8 @@ noted here as a limitation rather than a correctness issue.
 - `requirements.txt` — pinned host-side Python dependencies for running
   tests and analysis scripts.
 
-## Repository Visibility
 
-This repository is public and accessible without additional permissions.
-The link shared for submission points directly to this repository.
-
-## Grading Scheme Reference
-- TASK1: Server — 20%
-- TASK2: Consistent Hashing — 30%
-- TASK3: Load Balancer — 30%
-- TASK4: Analysis — 20%
-
-## Group Members
+## Group Members - ( 4B ICS )
 - Njoroge Nancy Nduta — 166993
 - Ian Wambaire Nganga — 159799
 - Macklee Nderitu Gitonga — 168000

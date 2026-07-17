@@ -56,7 +56,9 @@ def spawn_server(hostname=None):
 
 
 def remove_server(hostname):
-    # Stops and removes a container, and deregisters it from the hash map
+    # Stops and removes a container, and deregisters it from the hash map.
+    # Callers are expected to have already verified the hostname is active
+    # (see /rm validation below) -- this function assumes it exists.
     try:
         c = docker_client.containers.get(hostname)
         c.stop()
@@ -117,7 +119,8 @@ def rep():
 def add():
     # Scales up by spawning n new servers. If fewer hostnames are given
     # than n, the rest get random names. Rejects payloads where the
-    # hostname list is longer than n.
+    # hostname list is longer than n, or where a given hostname is
+    # already active (would silently collide in Docker/hash map otherwise).
     payload = request.get_json(force=True)
     n = payload.get("n", 0)
     hostnames = payload.get("hostnames", [])
@@ -129,6 +132,13 @@ def add():
         }), 400
 
     with lock:
+        duplicates = [h for h in hostnames if h in active_hostnames]
+        if duplicates:
+            return jsonify({
+                "message": f"<Error> Hostname(s) already active: {duplicates}",
+                "status": "failure"
+            }), 400
+
         for i in range(n):
             hostname = hostnames[i] if i < len(hostnames) else None
             spawn_server(hostname)
@@ -146,7 +156,9 @@ def add():
 def rm():
     # Scales down by removing n servers. Named hostnames are removed
     # first; any remaining count is filled by removing random servers.
-    # Rejects payloads where the hostname list is longer than n.
+    # Rejects payloads where the hostname list is longer than n, or
+    # where a named hostname isn't actually active (previously this
+    # failed silently and returned "successful" without removing anything).
     payload = request.get_json(force=True)
     n = payload.get("n", 0)
     hostnames = payload.get("hostnames", [])
@@ -158,6 +170,19 @@ def rm():
         }), 400
 
     with lock:
+        unknown = [h for h in hostnames if h not in active_hostnames]
+        if unknown:
+            return jsonify({
+                "message": f"<Error> Hostname(s) not found among active replicas: {unknown}",
+                "status": "failure"
+            }), 400
+
+        if n > len(active_hostnames):
+            return jsonify({
+                "message": "<Error> Cannot remove more instances than currently active",
+                "status": "failure"
+            }), 400
+
         to_remove = list(hostnames)
         remaining_needed = n - len(hostnames)
         candidates = [h for h in active_hostnames if h not in to_remove]
