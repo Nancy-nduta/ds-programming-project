@@ -252,7 +252,7 @@ Replaced the quadratic hash functions with Python's built-in string hash
 uniformly than a quadratic polynomial.
 
 ![A1 modified](results/a1_modified.png)
-![A2 modified](results/a2_modified.png)
+![A2 modified](results/a2_modified_std.png)
 
 **Observation**: load spread across servers roughly evenly instead of
 being dominated by a single server, confirming the original imbalance was

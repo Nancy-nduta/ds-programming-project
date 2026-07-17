@@ -106,14 +106,16 @@ if __name__ == "__main__":
         print(f"N={n} (actual_n={actual_n}): distribution={dict(counts)}")
         print(f"  avg_load={avg_load:.1f}, std_load={std_load:.1f}")
 
-    # Plot how average per-server load changes as we add more replicas.
-    # Should trend downward roughly like NUM_REQUESTS / N if balancing works.
+    # Plot how the spread (std dev) of load across servers changes with N.
+    # A well-balanced LB should keep this low and roughly flat/shrinking
+    # relative to avg_load as N grows; a rising or spiky line here is a
+    # sign the balancing strategy is uneven at certain replica counts.
     plt.figure(figsize=(8, 5))
-    plt.plot(n_values, avg_loads, marker="o", color="darkorange")
+    plt.plot(n_values, std_loads, marker="o", color="steelblue")
     plt.xlabel("Number of Servers (N)")
-    plt.ylabel("Average Load per Server (requests)")
-    plt.title(f"Average Load vs N ({NUM_REQUESTS} requests per run)")
+    plt.ylabel("Std Dev of Load per Server (requests)")
+    plt.title(f"Load Std Dev vs N ({NUM_REQUESTS} requests per run)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig("a2_modified.png")
-    print("\nSaved chart to a2_modified.png")
+    plt.savefig("a2_modified_std.png")
+    print("Saved chart to a2_modified_std.png")
