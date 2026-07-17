@@ -6,9 +6,6 @@ Why: average load per server is always 10000/N regardless of hash
 quality, so it can't show whether the hash function actually improved
 distribution. Stddev and max load DO capture that.
 
-Run this once against the ORIGINAL hash function (rename output files),
-then swap in the modified _request_hash/_virtual_hash and run again.
-Compare the two resulting PNGs side by side for your A-4 writeup.
 """
 
 import asyncio
