@@ -106,15 +106,28 @@ if __name__ == "__main__":
         print(f"N={n} (actual_n={actual_n}): distribution={dict(counts)}")
         print(f"  avg_load={avg_load:.1f}, std_load={std_load:.1f}")
 
-    # Plot how the spread (std dev) of load across servers changes with N.
-    # A well-balanced LB should keep this low and roughly flat/shrinking
-    # relative to avg_load as N grows; a rising or spiky line here is a
-    # sign the balancing strategy is uneven at certain replica counts.
+    # Main required chart: average load per server vs N, using the
+    # MODIFIED hash functions. Directly comparable to a2_scalability.png
+    # (same plot, same axes, original hash functions).
+    plt.figure(figsize=(8, 5))
+    plt.plot(n_values, avg_loads, marker="o", color="darkorange")
+    plt.xlabel("Number of Servers (N)")
+    plt.ylabel("Average Load per Server (requests)")
+    plt.title(f"Average Load vs N -- Modified Hash ({NUM_REQUESTS} requests per run)")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("a2_modified.png")
+    print("\nSaved chart to a2_modified.png")
+
+    # Bonus chart: std dev of load across servers vs N. Not required by
+    # A-2, but useful supporting evidence for the A-4 writeup, since
+    # avg_load alone can't show whether distribution actually got more
+    # even -- it's always NUM_REQUESTS / N regardless of hash quality.
     plt.figure(figsize=(8, 5))
     plt.plot(n_values, std_loads, marker="o", color="steelblue")
     plt.xlabel("Number of Servers (N)")
     plt.ylabel("Std Dev of Load per Server (requests)")
-    plt.title(f"Load Std Dev vs N ({NUM_REQUESTS} requests per run)")
+    plt.title(f"Load Std Dev vs N -- Modified Hash ({NUM_REQUESTS} requests per run)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig("a2_modified_std.png")
