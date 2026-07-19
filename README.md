@@ -27,32 +27,34 @@ Docker Compose.
 
 ## Repository Structure
 
-```
 .
-├── Server/
-│   ├── app.py              # Flask server: /home and /heartbeat endpoints
-│   └── Dockerfile          # Server container image
-├── Loadbalancer/
-│   ├── app.py               # Load balancer: /rep, /add, /rm, /<path>
-│   ├── consistent_hash.py  # Consistent hashing ring implementation
-│   └── Dockerfile          # Load balancer container image
+├── loadbalancer/
+│   ├── app.py                  # Load balancer: /rep, /add, /rm, /<path>
+│   ├── consistent_hash.py      # Consistent hashing ring implementation
+│   └── Dockerfile              # Load balancer container image
+├── server/
+│   ├── app.py                  # Flask server: /home and /heartbeat endpoints
+│   └── Dockerfile              # Server container image
 ├── tests/
-│   ├── test_consistent_hash.py   # Unit tests for the hash ring
-│   ├── test_endpoints.py         # Endpoint / integration tests
-│   └── plot_a1.py                # A-1: load distribution bar chart (N=3)
-│   └── plot_a1_modified.py       # A-1 rerun with modified hash functions
-│   └── plot_a2.py                # A-2: scalability sweep N=2 to 6, line chart
-│   └── plot_a2_modified.py       # A-2 rerun with modified hash functions
+│   ├── test_consistent_hash.py # Unit tests for the hash ring
+│   ├── test_endpoints.py       # Endpoint / integration tests
+│   ├── plot_a1.py              # A-1: load distribution bar chart (N=3)
+│   ├── plot_a1_modified.py     # A-1 rerun with modified hash functions
+│   ├── plot_a2.py              # A-2: scalability sweep N=2 to 6, line chart
+│   └── plot_a2_modified.py     # A-2 rerun with modified hash functions
 ├── results/
 │   ├── a1_load_distribution.png
 │   ├── a1_modified.png
 │   ├── a2_scalability.png
+│   ├── a2_modified.png
+│   ├── a2_original_std.png
 │   └── a2_modified_std.png
 ├── docker-compose.yml
 ├── Makefile
+├── load_test.py
+├── pytest.ini
 ├── requirements.txt
 └── README.md
-```
 
 ## Dependencies
 
